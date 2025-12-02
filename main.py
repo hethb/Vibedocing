@@ -1,26 +1,56 @@
 import streamlit as st
 from groq import Groq
 import json
-import os
+import hashlib
 from datetime import datetime
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="LexIQ - Learn to Code", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="LexIQ - AI-Powered Coding", page_icon="🧠", layout="wide")
+
+# --- USER AUTHENTICATION FUNCTIONS ---
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def load_users():
+    try:
+        with open('users.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_users(users):
+    with open('users.json', 'w') as f:
+        json.dump(users, f, indent=2)
+
+def load_user_progress(username):
+    try:
+        with open(f'progress_{username}.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {
+            'completed_lessons': [],
+            'quiz_scores': {},
+            'code_submissions': [],
+            'current_streak': 0,
+            'total_points': 0,
+            'last_login': datetime.now().isoformat()
+        }
+
+def save_user_progress(username, progress):
+    progress['last_login'] = datetime.now().isoformat()
+    with open(f'progress_{username}.json', 'w') as f:
+        json.dump(progress, f, indent=2)
 
 # --- SESSION STATE INIT ---
-if 'user_progress' not in st.session_state:
-    st.session_state.user_progress = {
-        'completed_lessons': [],
-        'quiz_scores': {},
-        'code_submissions': [],
-        'current_streak': 0,
-        'total_points': 0
-    }
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.user_progress = None
 
 if 'current_lesson' not in st.session_state:
     st.session_state.current_lesson = None
 
-# --- LOAD CURRICULUM ---
+# --- CURRICULUM ---
 CURRICULUM = {
     "Python Basics": {
         "lessons": [
@@ -344,6 +374,51 @@ st.markdown("""
     100% {background-position: 0% 50%;}
 }
 
+.hero-section {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: rgba(0, 180, 216, 0.1);
+    border-radius: 20px;
+    margin: 2rem 0;
+    backdrop-filter: blur(10px);
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: linear-gradient(120deg, #00b4d8, #0077ff, #00eaff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+}
+
+.ai-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #00b4d8, #0077ff);
+    padding: 0.5rem 1.5rem;
+    border-radius: 25px;
+    font-weight: 600;
+    margin: 1rem 0;
+    box-shadow: 0 0 20px rgba(0, 180, 216, 0.5);
+}
+
+.feature-card {
+    background: rgba(255,255,255,0.08);
+    border-radius: 15px;
+    padding: 2rem;
+    margin: 1rem 0;
+    border-left: 4px solid #00b4d8;
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.feature-card:hover {
+    background: rgba(255,255,255,0.12);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 180, 216, 0.3);
+}
+
 .lesson-card {
     background: rgba(255,255,255,0.08);
     border-radius: 15px;
@@ -365,6 +440,38 @@ st.markdown("""
     border-left-color: #10b981;
 }
 
+.stat-box {
+    background: rgba(0, 180, 216, 0.15);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    border: 1px solid rgba(0, 180, 216, 0.3);
+}
+
+.stTextArea textarea {
+    background: rgba(15, 23, 42, 0.95) !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(0, 180, 216, 0.3) !important;
+    border-radius: 10px !important;
+    font-family: 'Fira Code', monospace !important;
+}
+
+.stTextInput input {
+    background: rgba(15, 23, 42, 0.7) !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(0, 180, 216, 0.3) !important;
+}
+
+.login-container {
+    max-width: 450px;
+    margin: 0 auto;
+    padding: 2rem;
+    background: rgba(255,255,255,0.08);
+    border-radius: 20px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
 .progress-bar {
     background: rgba(255,255,255,0.1);
     height: 30px;
@@ -382,70 +489,132 @@ st.markdown("""
     justify-content: center;
     font-weight: bold;
 }
-
-.stat-box {
-    background: rgba(0, 180, 216, 0.15);
-    border-radius: 12px;
-    padding: 1rem;
-    text-align: center;
-    border: 1px solid rgba(0, 180, 216, 0.3);
-}
-
-.code-editor {
-    background: rgba(15, 23, 42, 0.95) !important;
-    border: 1px solid rgba(0, 180, 216, 0.3) !important;
-    border-radius: 10px !important;
-    font-family: 'Fira Code', 'Source Code Pro', monospace !important;
-    font-size: 14px !important;
-}
-
-.stTextArea textarea {
-    background: rgba(15, 23, 42, 0.95) !important;
-    color: #f1f5f9 !important;
-    border: 1px solid rgba(0, 180, 216, 0.3) !important;
-    border-radius: 10px !important;
-    font-family: 'Fira Code', monospace !important;
-}
-
-.quiz-option {
-    background: rgba(255,255,255,0.08);
-    border: 2px solid rgba(255,255,255,0.1);
-    border-radius: 10px;
-    padding: 1rem;
-    margin: 0.5rem 0;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.quiz-option:hover {
-    background: rgba(0, 180, 216, 0.2);
-    border-color: #00b4d8;
-}
-
-.correct-answer {
-    background: rgba(16, 185, 129, 0.2) !important;
-    border-color: #10b981 !important;
-}
-
-.wrong-answer {
-    background: rgba(239, 68, 68, 0.2) !important;
-    border-color: #ef4444 !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR NAVIGATION ---
-st.sidebar.title("🧠 LexIQ")
-page = st.sidebar.radio("Navigate", ["🏠 Dashboard", "📚 Learn", "💻 Code Lab", "🎯 Practice", "📊 Progress"])
+# --- LOGIN PAGE ---
+if not st.session_state.logged_in:
+    st.markdown("""
+    <div class='hero-section'>
+        <h1 class='hero-title'>🧠 LexIQ</h1>
+        <div class='ai-badge'>✨ AI-Powered Learning Platform</div>
+        <p style='font-size: 1.2rem; margin-top: 1rem;'>Learn Python through interactive AI conversations and instant code feedback</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+        
+        tab1, tab2 = st.tabs(["🔐 Login", "✨ Sign Up"])
+        
+        with tab1:
+            st.markdown("### Welcome Back!")
+            login_username = st.text_input("Username", key="login_user")
+            login_password = st.text_input("Password", type="password", key="login_pass")
+            
+            if st.button("Login", use_container_width=True):
+                users = load_users()
+                hashed_pw = hash_password(login_password)
+                
+                if login_username in users and users[login_username] == hashed_pw:
+                    st.session_state.logged_in = True
+                    st.session_state.username = login_username
+                    st.session_state.user_progress = load_user_progress(login_username)
+                    st.success("✅ Login successful!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid username or password")
+        
+        with tab2:
+            st.markdown("### Create Your Account")
+            signup_username = st.text_input("Choose Username", key="signup_user")
+            signup_password = st.text_input("Choose Password", type="password", key="signup_pass")
+            signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm")
+            
+            if st.button("Create Account", use_container_width=True):
+                if not signup_username or not signup_password:
+                    st.error("Please fill in all fields")
+                elif signup_password != signup_confirm:
+                    st.error("Passwords don't match")
+                elif len(signup_password) < 6:
+                    st.error("Password must be at least 6 characters")
+                else:
+                    users = load_users()
+                    if signup_username in users:
+                        st.error("Username already exists")
+                    else:
+                        users[signup_username] = hash_password(signup_password)
+                        save_users(users)
+                        st.success("✅ Account created! Please login.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Feature showcase
+    st.markdown("### 🚀 Why LexIQ?")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class='feature-card'>
+            <h2 style='font-size: 3rem; margin: 0;'>🤖</h2>
+            <h3>AI Code Assistant</h3>
+            <p>Chat with AI to understand code, debug errors, and get instant explanations. Learn by asking questions naturally.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class='feature-card'>
+            <h2 style='font-size: 3rem; margin: 0;'>⚡</h2>
+            <h3>Vibe-Based Learning</h3>
+            <p>No rigid structure. Learn at your pace, explore what interests you, and build real projects with AI guidance.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class='feature-card'>
+            <h2 style='font-size: 3rem; margin: 0;'>📈</h2>
+            <h3>Track Progress</h3>
+            <p>Monitor your growth, earn achievements, and see your coding journey visualized with stats and milestones.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.stop()
+
+# --- LOGGED IN - MAIN APP ---
+
+# Save progress periodically
+if st.session_state.user_progress:
+    save_user_progress(st.session_state.username, st.session_state.user_progress)
+
+# Sidebar
+st.sidebar.title(f"👋 Hey, {st.session_state.username}!")
+if st.sidebar.button("🚪 Logout"):
+    save_user_progress(st.session_state.username, st.session_state.user_progress)
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.rerun()
+
+page = st.sidebar.radio("", ["🏠 Home", "🤖 AI Assistant", "📚 Learn", "🎯 Challenges", "📊 Progress"])
 
 # Get API key
-api_key = st.sidebar.text_input("Groq API Key", type="password", help="Get your free key at console.groq.com")
-st.sidebar.markdown("[Get API Key →](https://console.groq.com/keys)")
+api_key = st.sidebar.text_input("Groq API Key", type="password", help="Enter your Groq API key")
+st.sidebar.markdown("[Get free API key →](https://console.groq.com/keys)")
 
-# --- DASHBOARD PAGE ---
-if page == "🏠 Dashboard":
-    st.title("Welcome to LexIQ! 🚀")
-    st.markdown("### Your Personal Python Learning Platform")
+# --- HOME PAGE ---
+if page == "🏠 Home":
+    st.markdown("""
+    <div class='hero-section'>
+        <h1 class='hero-title'>Welcome to LexIQ</h1>
+        <div class='ai-badge'>🤖 Your AI Coding Companion</div>
+    </div>
+    """, unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -484,21 +653,127 @@ if page == "🏠 Dashboard":
         """, unsafe_allow_html=True)
     
     st.markdown("---")
-    st.markdown("### 🎯 Quick Start")
     
     col1, col2 = st.columns(2)
+    
     with col1:
-        if st.button("📚 Start Learning", use_container_width=True):
+        st.markdown("""
+        <div class='feature-card'>
+            <h2>🤖 AI Assistant</h2>
+            <p style='font-size: 1.1rem;'>Your main learning tool! Chat with AI to:</p>
+            <ul style='text-align: left; margin-top: 1rem;'>
+                <li>Explain any code you paste</li>
+                <li>Debug and fix errors</li>
+                <li>Get coding suggestions</li>
+                <li>Ask questions naturally</li>
+                <li>Build projects together</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🚀 Open AI Assistant", use_container_width=True, type="primary"):
+            st.session_state.page = "🤖 AI Assistant"
+            st.rerun()
+    
+    with col2:
+        st.markdown("""
+        <div class='feature-card'>
+            <h2>📚 Structured Learning</h2>
+            <p style='font-size: 1.1rem;'>Optional guided path with:</p>
+            <ul style='text-align: left; margin-top: 1rem;'>
+                <li>Curated lessons & tutorials</li>
+                <li>Practice exercises</li>
+                <li>Knowledge quizzes</li>
+                <li>Progress tracking</li>
+                <li>Coding challenges</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("📖 Browse Lessons", use_container_width=True):
             st.session_state.page = "📚 Learn"
             st.rerun()
-    with col2:
-        if st.button("💻 Open Code Lab", use_container_width=True):
-            st.session_state.page = "💻 Code Lab"
-            st.rerun()
+
+# --- AI ASSISTANT PAGE (MAIN FEATURE) ---
+elif page == "🤖 AI Assistant":
+    st.title("🤖 Your AI Coding Assistant")
+    st.markdown("### Paste code, ask questions, get help - learn by doing!")
+    
+    # Initialize chat history
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    # Display chat history
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    
+    # Chat input
+    if prompt := st.chat_input("Paste code or ask a question..."):
+        # Add user message to history
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Get AI response
+        if api_key:
+            try:
+                client = Groq(api_key=api_key)
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        response = client.chat.completions.create(
+                            model="llama-3.1-8b-instant",
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "You are LexIQ, a friendly AI coding tutor. "
+                                        "Help users learn Python by explaining code clearly, debugging errors, "
+                                        "answering questions, and providing guidance. Be conversational and encouraging. "
+                                        "When explaining code, break it down line by line. "
+                                        "When debugging, identify the issue and suggest fixes. "
+                                        "Always encourage learning by asking if they have follow-up questions."
+                                    )
+                                },
+                                *[{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_history]
+                            ],
+                            temperature=0.4,
+                        )
+                        ai_message = response.choices[0].message.content
+                        st.markdown(ai_message)
+                        st.session_state.chat_history.append({"role": "assistant", "content": ai_message})
+                        
+                        # Award points for interaction
+                        st.session_state.user_progress['total_points'] += 5
+                        st.session_state.user_progress['code_submissions'].append({
+                            'timestamp': datetime.now().isoformat(),
+                            'prompt': prompt
+                        })
+            except Exception as e:
+                st.error(f"Error: {e}")
+        else:
+            with st.chat_message("assistant"):
+                st.warning("⚠️ Please add your Groq API key in the sidebar to use the AI assistant!")
+    
+    # Sidebar quick actions
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 💡 Quick Actions")
+    
+    if st.sidebar.button("🔄 New Conversation"):
+        st.session_state.chat_history = []
+        st.rerun()
+    
+    st.sidebar.markdown("### 🎯 Try asking:")
+    st.sidebar.markdown("""
+    - "Explain this code: [paste code]"
+    - "How do I create a function?"
+    - "Debug this error: [error message]"
+    - "What's the difference between lists and tuples?"
+    - "Help me build a calculator"
+    """)
 
 # --- LEARN PAGE ---
 elif page == "📚 Learn":
-    st.title("📚 Learning Path")
+    st.title("📚 Structured Learning Path")
+    st.markdown("*Optional: Use these lessons to build foundational knowledge*")
     
     for track_name, track_data in CURRICULUM.items():
         st.markdown(f"### {track_name}")
@@ -526,226 +801,31 @@ elif page == "📚 Learn":
         st.markdown("---")
         st.markdown(f"## {lesson['title']}")
         
-        # Content
         st.markdown(lesson['content'])
         
-        # Exercise
         st.markdown("### 💪 Practice Exercise")
         st.info(lesson['exercise'])
         
         user_code = st.text_area("Your Solution:", height=150, key="exercise_code")
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("🔍 Check with AI"):
+            if st.button("🤖 Ask AI for Help"):
                 if api_key and user_code:
                     try:
                         client = Groq(api_key=api_key)
-                        with st.spinner("Reviewing your code..."):
+                        with st.spinner("Getting AI feedback..."):
                             response = client.chat.completions.create(
                                 model="llama-3.1-8b-instant",
                                 messages=[
-                                    {"role": "system", "content": "You are a helpful coding tutor. Review the student's code and provide constructive feedback."},
-                                    {"role": "user", "content": f"Exercise: {lesson['exercise']}\n\nStudent's code:\n{user_code}\n\nProvide feedback on correctness and suggestions."}
+                                    {"role": "system", "content": "You are a helpful coding tutor. Review student code and provide constructive feedback."},
+                                    {"role": "user", "content": f"Exercise: {lesson['exercise']}\n\nStudent's code:\n{user_code}\n\nProvide feedback."}
                                 ],
                                 temperature=0.3,
                             )
-                            st.success("AI Feedback:")
-                            st.write(response.choices[0].message.content)
+                        ai_feedback = response.choices[0].message['content']
+                        st.success("AI Feedback:")
+                        st.markdown(ai_feedback)
+
                     except Exception as e:
                         st.error(f"Error: {e}")
-                else:
-                    st.warning("Please enter API key and code.")
-        
-        with col2:
-            if st.button("👀 Show Solution"):
-                st.code(lesson['solution'], language='python')
-        
-        # Quiz
-        st.markdown("### 🎯 Knowledge Check")
-        score = 0
-        for i, q in enumerate(lesson['quiz']):
-            st.markdown(f"**Question {i+1}:** {q['question']}")
-            answer = st.radio("", q['options'], key=f"q_{lesson['id']}_{i}")
-            if st.button("Submit", key=f"submit_{lesson['id']}_{i}"):
-                if q['options'].index(answer) == q['correct']:
-                    st.success("✅ Correct!")
-                    score += 1
-                else:
-                    st.error(f"❌ Wrong. Correct answer: {q['options'][q['correct']]}")
-        
-        if st.button("✅ Mark as Complete"):
-            if lesson['id'] not in st.session_state.user_progress['completed_lessons']:
-                st.session_state.user_progress['completed_lessons'].append(lesson['id'])
-                st.session_state.user_progress['total_points'] += 50
-                st.success("🎉 Lesson completed! +50 points")
-                st.balloons()
-                st.rerun()
-
-# --- CODE LAB PAGE ---
-elif page == "💻 Code Lab":
-    st.title("💻 Interactive Code Lab")
-    st.markdown("Write code and get instant AI explanations!")
-    
-    code_input = st.text_area("Write your Python code:", height=200, key="code_lab")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("🔍 Explain Code", use_container_width=True):
-            if api_key and code_input:
-                try:
-                    client = Groq(api_key=api_key)
-                    with st.spinner("Analyzing..."):
-                        response = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[
-                                {"role": "system", "content": "Explain code line by line for beginners."},
-                                {"role": "user", "content": f"Explain:\n\n{code_input}"}
-                            ],
-                            temperature=0.3,
-                        )
-                        st.markdown("### 📖 Explanation")
-                        st.info(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"Error: {e}")
-    
-    with col2:
-        if st.button("🐛 Debug Code", use_container_width=True):
-            if api_key and code_input:
-                try:
-                    client = Groq(api_key=api_key)
-                    with st.spinner("Finding bugs..."):
-                        response = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[
-                                {"role": "system", "content": "Find bugs and suggest fixes."},
-                                {"role": "user", "content": f"Debug:\n\n{code_input}"}
-                            ],
-                            temperature=0.3,
-                        )
-                        st.markdown("### 🐛 Debug Report")
-                        st.warning(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"Error: {e}")
-    
-    with col3:
-        if st.button("✨ Improve Code", use_container_width=True):
-            if api_key and code_input:
-                try:
-                    client = Groq(api_key=api_key)
-                    with st.spinner("Optimizing..."):
-                        response = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[
-                                {"role": "system", "content": "Suggest improvements for better code quality."},
-                                {"role": "user", "content": f"Improve:\n\n{code_input}"}
-                            ],
-                            temperature=0.3,
-                        )
-                        st.markdown("### ✨ Improvements")
-                        st.success(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-# --- PRACTICE PAGE ---
-elif page == "🎯 Practice":
-    st.title("🎯 Coding Challenges")
-    st.markdown("Test your skills with these challenges!")
-    
-    challenges = [
-        {
-            "title": "FizzBuzz",
-            "difficulty": "Easy",
-            "description": "Print numbers 1-100. For multiples of 3 print 'Fizz', for 5 print 'Buzz', for both print 'FizzBuzz'.",
-            "hint": "Use modulo operator (%) to check divisibility"
-        },
-        {
-            "title": "Palindrome Checker",
-            "difficulty": "Easy",
-            "description": "Write a function that checks if a string is a palindrome (reads same forwards and backwards).",
-            "hint": "Compare string with its reverse"
-        },
-        {
-            "title": "Sum of List",
-            "difficulty": "Easy",
-            "description": "Create a function that calculates the sum of all numbers in a list without using sum().",
-            "hint": "Use a loop to add each element"
-        }
-    ]
-    
-    for challenge in challenges:
-        with st.expander(f"{'🟢' if challenge['difficulty'] == 'Easy' else '🟡'} {challenge['title']} - {challenge['difficulty']}"):
-            st.markdown(f"**Challenge:** {challenge['description']}")
-            st.markdown(f"💡 *Hint: {challenge['hint']}*")
-            
-            solution = st.text_area("Your solution:", key=f"challenge_{challenge['title']}", height=150)
-            
-            if st.button("Submit Solution", key=f"submit_{challenge['title']}"):
-                if api_key and solution:
-                    try:
-                        client = Groq(api_key=api_key)
-                        with st.spinner("Reviewing..."):
-                            response = client.chat.completions.create(
-                                model="llama-3.1-8b-instant",
-                                messages=[
-                                    {"role": "system", "content": "Review coding challenge solutions. Give score out of 10 and feedback."},
-                                    {"role": "user", "content": f"Challenge: {challenge['description']}\n\nSolution:\n{solution}"}
-                                ],
-                                temperature=0.3,
-                            )
-                            st.success("AI Review:")
-                            st.write(response.choices[0].message.content)
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-
-# --- PROGRESS PAGE ---
-elif page == "📊 Progress":
-    st.title("📊 Your Progress")
-    
-    total_lessons = sum(len(track['lessons']) for track in CURRICULUM.values())
-    completed = len(st.session_state.user_progress['completed_lessons'])
-    progress_pct = (completed / total_lessons * 100) if total_lessons > 0 else 0
-    
-    st.markdown(f"""
-    <div class='progress-bar'>
-        <div class='progress-fill' style='width: {progress_pct}%'>
-            {progress_pct:.0f}%
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(f"**{completed} of {total_lessons} lessons completed**")
-    
-    st.markdown("---")
-    st.markdown("### 🏆 Achievements")
-    
-    achievements = [
-        ("🎯", "First Steps", "Complete your first lesson", completed >= 1),
-        ("🔥", "On Fire", "Complete 5 lessons", completed >= 5),
-        ("📚", "Bookworm", "Complete an entire track", False),
-        ("💯", "Perfect Score", "Get 100% on a quiz", False),
-    ]
-    
-    cols = st.columns(4)
-    for i, (emoji, title, desc, unlocked) in enumerate(achievements):
-        with cols[i]:
-            opacity = "1.0" if unlocked else "0.3"
-            st.markdown(f"""
-            <div style='text-align: center; opacity: {opacity}'>
-                <div style='font-size: 48px'>{emoji}</div>
-                <strong>{title}</strong><br>
-                <small>{desc}</small>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("### 📈 Learning Stats")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Total Points", st.session_state.user_progress['total_points'])
-        st.metric("Code Submissions", len(st.session_state.user_progress['code_submissions']))
-    with col2:
-        st.metric("Current Streak", f"{st.session_state.user_progress['current_streak']} days")
-        st.metric("Lessons Remaining", total_lessons - completed)
