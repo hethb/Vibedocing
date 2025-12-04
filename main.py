@@ -365,7 +365,30 @@ st.markdown("""
     background: linear-gradient(120deg, #0f172a, #1e293b, #334155);
     background-size: 300% 300%;
     animation: gradientMove 12s ease infinite;
-    color: white;
+    color: #f1f5f9;
+}
+
+/* Ensure text is readable with high contrast */
+.stMarkdown, .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+.stMarkdown h4, .stMarkdown li, .stMarkdown span, div, p, label, span {
+    color: #f1f5f9 !important;
+}
+
+.stChatMessage {
+    color: #f1f5f9 !important;
+}
+
+.stChatMessage p {
+    color: #f1f5f9 !important;
+}
+
+/* Specific elements for better readability */
+.stRadio label, .stCheckbox label, .stSelectbox label {
+    color: #e2e8f0 !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #f8fafc !important;
 }
 
 @keyframes gradientMove {
@@ -695,29 +718,40 @@ if page == "🏠 Home":
 # --- AI ASSISTANT PAGE (MAIN FEATURE) ---
 elif page == "🤖 AI Assistant":
     st.title("🤖 Your AI Coding Assistant")
-    st.markdown("### Paste code, ask questions, get help - learn by doing!")
+    st.markdown("### Learn by building - step by step!")
     
-    # Initialize chat history
+    # Initialize session states
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
+    if 'current_code' not in st.session_state:
+        st.session_state.current_code = ""
+    if 'pending_changes' not in st.session_state:
+        st.session_state.pending_changes = []
+    if 'learning_mode' not in st.session_state:
+        st.session_state.learning_mode = True
     
-    # Display chat history
-    for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Two-column layout
+    col1, col2 = st.columns([1, 1])
     
-    # Chat input
-    if prompt := st.chat_input("Paste code or ask a question..."):
-        # Add user message to history
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    with col1:
+        st.markdown("#### 💬 Chat with AI")
         
-        # Get AI response
-        if api_key:
-            try:
-                client = Groq(api_key=api_key)
-                with st.chat_message("assistant"):
+        # Display chat history
+        chat_container = st.container(height=400)
+        with chat_container:
+            for message in st.session_state.chat_history:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+        
+        # Chat input
+        if prompt := st.chat_input("Ask about code, request features, or get help..."):
+            # Add user message to history
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            
+            # Get AI response
+            if api_key:
+                try:
+                    client = Groq(api_key=api_key)
                     with st.spinner("Thinking..."):
                         response = client.chat.completions.create(
                             model="llama-3.1-8b-instant",
@@ -725,49 +759,172 @@ elif page == "🤖 AI Assistant":
                                 {
                                     "role": "system",
                                     "content": (
-                                        "You are LexIQ, a friendly AI coding tutor. "
-                                        "Help users learn Python by explaining code clearly, debugging errors, "
-                                        "answering questions, and providing guidance. Be conversational and encouraging. "
-                                        "When explaining code, break it down line by line. "
-                                        "When debugging, identify the issue and suggest fixes. "
-                                        "Always encourage learning by asking if they have follow-up questions."
+                                        "You are LexIQ, a Socratic coding tutor. Your goal is to help users LEARN through discovery, not just give answers.\n\n"
+                                        "CRITICAL TEACHING PHILOSOPHY:\n"
+                                        "1. NEVER give complete code solutions directly - make them work for it\n"
+                                        "2. Be intentionally vague at first - give hints, not answers\n"
+                                        "3. Ask probing questions to guide their thinking\n"
+                                        "4. Only reveal code after they've attempted to understand the concept\n"
+                                        "5. Break complex tasks into tiny micro-steps\n"
+                                        "6. Make them ask follow-up questions to get more detail\n"
+                                        "7. When debugging, point to the AREA of the problem, not the exact fix\n"
+                                        "8. Challenge their assumptions with questions\n\n"
+                                        "RESPONSE PATTERN:\n"
+                                        "- First response: Ask what they're trying to achieve and what they've tried\n"
+                                        "- Second response: Give a conceptual hint or ask about their understanding\n"
+                                        "- Third response: Maybe show a small piece of pseudocode or pattern\n"
+                                        "- Fourth+ response: Only then consider showing actual code, one tiny piece at a time\n\n"
+                                        "When they ask for help building something:\n"
+                                        "- Ask: 'What's the first step you think we need?'\n"
+                                        "- Ask: 'How would you approach this?'\n"
+                                        "- Ask: 'What do you already know that might help here?'\n\n"
+                                        "When debugging:\n"
+                                        "- Ask: 'What do you think this error means?'\n"
+                                        "- Say: 'Look at line X - what's happening there?'\n"
+                                        "- Ask: 'What values do you expect vs what are you getting?'\n\n"
+                                        "Format code suggestions ONLY after discussion like:\n"
+                                        "CONCEPT: [explain the idea]\n"
+                                        "QUESTION: [check their understanding]\n"
+                                        "If they answer correctly, THEN:\n"
+                                        "CODE_CHANGE:\n```python\n[tiny code snippet - 1-3 lines max]\n```\n"
+                                        "WHY: [explain this specific piece]\n"
+                                        "NEXT: [what should they think about next?]\n\n"
+                                        f"Current code:\n{st.session_state.current_code}\n\n"
+                                        "Be patient, ask questions, and make them think. Learning happens through struggle."
                                     )
                                 },
-                                *[{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_history]
+                                *[{"role": m["role"], "content": m["content"]} for m in st.session_state.chat_history[-10:]]
                             ],
                             temperature=0.4,
                         )
                         ai_message = response.choices[0].message.content
-                        st.markdown(ai_message)
                         st.session_state.chat_history.append({"role": "assistant", "content": ai_message})
+                        
+                        # Check if AI suggested a code change
+                        if "```python" in ai_message:
+                            # Extract code snippet
+                            code_start = ai_message.find("```python") + 9
+                            code_end = ai_message.find("```", code_start)
+                            code_snippet = ai_message[code_start:code_end].strip()
+                            
+                            # Extract explanation (text before code)
+                            explanation = ai_message[:ai_message.find("```python")].strip()
+                            
+                            # Add to pending changes
+                            st.session_state.pending_changes.append({
+                                'explanation': explanation,
+                                'code': code_snippet
+                            })
                         
                         # Award points for interaction
                         st.session_state.user_progress['total_points'] += 5
-                        st.session_state.user_progress['code_submissions'].append({
-                            'timestamp': datetime.now().isoformat(),
-                            'prompt': prompt
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
+            else:
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "content": "⚠️ Please add your Groq API key in the sidebar to use the AI assistant!"
+                })
+                st.rerun()
+    
+    with col2:
+        st.markdown("#### 💻 Your Code Workspace")
+        
+        # Code editor
+        st.session_state.current_code = st.text_area(
+            "Write your code here:",
+            value=st.session_state.current_code,
+            height=300,
+            key="code_workspace"
+        )
+        
+        # Pending changes section
+        if st.session_state.pending_changes:
+            st.markdown("---")
+            st.markdown("#### 📝 Suggested Change")
+            
+            change = st.session_state.pending_changes[0]
+            
+            with st.container():
+                st.markdown("**Understanding the change:**")
+                st.info(change['explanation'])
+                
+                st.markdown("**Proposed code:**")
+                st.code(change['code'], language='python')
+                
+                col_a, col_b, col_c = st.columns(3)
+                
+                with col_a:
+                    if st.button("✅ Apply Change", use_container_width=True):
+                        # Apply the change to current code
+                        st.session_state.current_code += "\n\n" + change['code']
+                        st.session_state.pending_changes.pop(0)
+                        st.session_state.user_progress['total_points'] += 10
+                        st.session_state.chat_history.append({
+                            "role": "user",
+                            "content": "I applied the change. What's next?"
                         })
-            except Exception as e:
-                st.error(f"Error: {e}")
-        else:
-            with st.chat_message("assistant"):
-                st.warning("⚠️ Please add your Groq API key in the sidebar to use the AI assistant!")
+                        st.rerun()
+                
+                with col_b:
+                    if st.button("❓ Explain More", use_container_width=True):
+                        st.session_state.chat_history.append({
+                            "role": "user",
+                            "content": f"Can you explain this in more detail? I don't fully understand:\n```python\n{change['code']}\n```"
+                        })
+                        st.rerun()
+                
+                with col_c:
+                    if st.button("❌ Skip", use_container_width=True):
+                        st.session_state.pending_changes.pop(0)
+                        st.rerun()
+        
+        # Quick action buttons
+        st.markdown("---")
+        col_x, col_y = st.columns(2)
+        with col_x:
+            if st.button("🔍 Explain My Code", use_container_width=True):
+                if st.session_state.current_code:
+                    st.session_state.chat_history.append({
+                        "role": "user",
+                        "content": f"I wrote this code. Can you help me understand what it does?\n```python\n{st.session_state.current_code}\n```"
+                    })
+                    st.rerun()
+                else:
+                    st.warning("Write some code first!")
+        with col_y:
+            if st.button("🐛 Help Debug", use_container_width=True):
+                if st.session_state.current_code:
+                    st.session_state.chat_history.append({
+                        "role": "user",
+                        "content": f"Something's wrong with my code. Can you help me find the issue?\n```python\n{st.session_state.current_code}\n```"
+                    })
+                    st.rerun()
+                else:
+                    st.warning("Write some code first!")
     
     # Sidebar quick actions
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 💡 Quick Actions")
     
-    if st.sidebar.button("🔄 New Conversation"):
+    if st.sidebar.button("🔄 Clear Chat"):
         st.session_state.chat_history = []
+        st.rerun()
+    
+    if st.sidebar.button("📝 New Project"):
+        st.session_state.current_code = ""
+        st.session_state.chat_history = []
+        st.session_state.pending_changes = []
         st.rerun()
     
     st.sidebar.markdown("### 🎯 Try asking:")
     st.sidebar.markdown("""
-    - "Explain this code: [paste code]"
-    - "How do I create a function?"
-    - "Debug this error: [error message]"
-    - "What's the difference between lists and tuples?"
     - "Help me build a calculator"
+    - "How do I make a guessing game?"
+    - "I want to create a to-do list"
+    - "Why isn't my code working?"
+    - "What should I learn next?"
     """)
 
 # --- LEARN PAGE ---
@@ -823,9 +980,139 @@ elif page == "📚 Learn":
                                 ],
                                 temperature=0.3,
                             )
-                        ai_feedback = response.choices[0].message['content']
-                        st.success("AI Feedback:")
-                        st.markdown(ai_feedback)
-
+                            st.success("AI Feedback:")
+                            st.write(response.choices[0].message.content)
                     except Exception as e:
                         st.error(f"Error: {e}")
+                else:
+                    st.warning("Please enter API key and code.")
+        
+        with col2:
+            if st.button("👀 Show Solution"):
+                st.code(lesson['solution'], language='python')
+        
+        with col3:
+            if st.button("✅ Mark Complete"):
+                if lesson['id'] not in st.session_state.user_progress['completed_lessons']:
+                    st.session_state.user_progress['completed_lessons'].append(lesson['id'])
+                    st.session_state.user_progress['total_points'] += 50
+                    st.success("🎉 Lesson completed! +50 points")
+                    st.balloons()
+                    st.rerun()
+        
+        # Quiz
+        st.markdown("### 🎯 Knowledge Check")
+        for i, q in enumerate(lesson['quiz']):
+            st.markdown(f"**Question {i+1}:** {q['question']}")
+            answer = st.radio("", q['options'], key=f"q_{lesson['id']}_{i}")
+            if st.button("Submit Answer", key=f"submit_{lesson['id']}_{i}"):
+                if q['options'].index(answer) == q['correct']:
+                    st.success("✅ Correct!")
+                    st.session_state.user_progress['total_points'] += 10
+                else:
+                    st.error(f"❌ Wrong. Correct answer: {q['options'][q['correct']]}")
+
+# --- CHALLENGES PAGE ---
+elif page == "🎯 Challenges":
+    st.title("🎯 Coding Challenges")
+    st.markdown("Test your skills with these challenges!")
+    
+    challenges = [
+        {
+            "title": "FizzBuzz",
+            "difficulty": "Easy",
+            "description": "Print numbers 1-100. For multiples of 3 print 'Fizz', for 5 print 'Buzz', for both print 'FizzBuzz'.",
+            "hint": "Use modulo operator (%) to check divisibility"
+        },
+        {
+            "title": "Palindrome Checker",
+            "difficulty": "Easy",
+            "description": "Write a function that checks if a string is a palindrome (reads same forwards and backwards).",
+            "hint": "Compare string with its reverse"
+        },
+        {
+            "title": "Sum of List",
+            "difficulty": "Easy",
+            "description": "Create a function that calculates the sum of all numbers in a list without using sum().",
+            "hint": "Use a loop to add each element"
+        }
+    ]
+    
+    for challenge in challenges:
+        with st.expander(f"{'🟢' if challenge['difficulty'] == 'Easy' else '🟡'} {challenge['title']} - {challenge['difficulty']}"):
+            st.markdown(f"**Challenge:** {challenge['description']}")
+            st.markdown(f"💡 *Hint: {challenge['hint']}*")
+            
+            solution = st.text_area("Your solution:", key=f"challenge_{challenge['title']}", height=150)
+            
+            if st.button("Submit Solution", key=f"submit_{challenge['title']}"):
+                if api_key and solution:
+                    try:
+                        client = Groq(api_key=api_key)
+                        with st.spinner("Reviewing..."):
+                            response = client.chat.completions.create(
+                                model="llama-3.1-8b-instant",
+                                messages=[
+                                    {"role": "system", "content": "Review coding challenge solutions. Give score out of 10 and feedback."},
+                                    {"role": "user", "content": f"Challenge: {challenge['description']}\n\nSolution:\n{solution}"}
+                                ],
+                                temperature=0.3,
+                            )
+                            st.success("AI Review:")
+                            st.write(response.choices[0].message.content)
+                            st.session_state.user_progress['total_points'] += 20
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+                else:
+                    st.warning("Please enter API key and solution.")
+
+# --- PROGRESS PAGE ---
+elif page == "📊 Progress":
+    st.title("📊 Your Progress")
+    
+    total_lessons = sum(len(track['lessons']) for track in CURRICULUM.values())
+    completed = len(st.session_state.user_progress['completed_lessons'])
+    progress_pct = (completed / total_lessons * 100) if total_lessons > 0 else 0
+    
+    st.markdown(f"""
+    <div class='progress-bar'>
+        <div class='progress-fill' style='width: {progress_pct}%'>
+            {progress_pct:.0f}%
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown(f"**{completed} of {total_lessons} lessons completed**")
+    
+    st.markdown("---")
+    st.markdown("### 🏆 Achievements")
+    
+    achievements = [
+        ("🎯", "First Steps", "Complete your first lesson", completed >= 1),
+        ("🔥", "On Fire", "Complete 5 lessons", completed >= 5),
+        ("📚", "Bookworm", "Complete an entire track", completed >= 3),
+        ("💯", "Code Master", "Earn 500 points", st.session_state.user_progress['total_points'] >= 500),
+    ]
+    
+    cols = st.columns(4)
+    for i, (emoji, title, desc, unlocked) in enumerate(achievements):
+        with cols[i]:
+            opacity = "1.0" if unlocked else "0.3"
+            st.markdown(f"""
+            <div style='text-align: center; opacity: {opacity}'>
+                <div style='font-size: 48px'>{emoji}</div>
+                <strong>{title}</strong><br>
+                <small>{desc}</small>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("### 📈 Learning Stats")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Total Points", st.session_state.user_progress['total_points'])
+        st.metric("Code Submissions", len(st.session_state.user_progress['code_submissions']))
+    with col2:
+        st.metric("Current Streak", f"{st.session_state.user_progress['current_streak']} days")
+        st.metric("Lessons Remaining", total_lessons - completed)
