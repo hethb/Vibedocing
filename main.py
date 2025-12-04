@@ -391,6 +391,21 @@ h1, h2, h3, h4, h5, h6 {
     color: #f8fafc !important;
 }
 
+/* Sidebar text styling */
+.css-1d391kg, .css-1d391kg p, .css-1d391kg label, 
+[data-testid="stSidebar"], [data-testid="stSidebar"] * {
+    color: #1e293b !important;
+}
+
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
+[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
+    color: #0f172a !important;
+}
+
+[data-testid="stSidebar"] .stMarkdown {
+    color: #334155 !important;
+}
+
 @keyframes gradientMove {
     0% {background-position: 0% 50%;}
     50% {background-position: 100% 50%;}
@@ -476,7 +491,27 @@ h1, h2, h3, h4, h5, h6 {
     color: #f1f5f9 !important;
     border: 1px solid rgba(0, 180, 216, 0.3) !important;
     border-radius: 10px !important;
-    font-family: 'Fira Code', monospace !important;
+    font-family: 'Fira Code', 'Courier New', monospace !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    tab-size: 4 !important;
+    -moz-tab-size: 4 !important;
+}
+
+/* IDE-style code editor */
+.code-editor-container {
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(0, 180, 216, 0.3);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.line-numbers {
+    color: #64748b;
+    user-select: none;
+    padding-right: 10px;
+    border-right: 1px solid rgba(100, 116, 139, 0.3);
+    font-family: 'Fira Code', monospace;
 }
 
 .stTextInput input {
@@ -624,7 +659,7 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.username = None
     st.rerun()
 
-page = st.sidebar.radio("", ["🏠 Home", "🤖 AI Assistant", "📚 Learn", "🎯 Challenges", "📊 Progress"])
+page = st.sidebar.radio("", ["🏠 Home", "🤖 AI Assistant", "📚 Learn", "🎯 Projects", "📊 Progress"])
 
 # Get API key
 api_key = st.sidebar.text_input("Groq API Key", type="password", help="Enter your Groq API key")
@@ -1012,59 +1047,388 @@ elif page == "📚 Learn":
                 else:
                     st.error(f"❌ Wrong. Correct answer: {q['options'][q['correct']]}")
 
-# --- CHALLENGES PAGE ---
-elif page == "🎯 Challenges":
-    st.title("🎯 Coding Challenges")
-    st.markdown("Test your skills with these challenges!")
+# --- PROJECTS PAGE ---
+elif page == "🎯 Projects":
+    st.title("🎯 Guided Projects")
+    st.markdown("### Build real projects with AI guidance - you write every line!")
     
-    challenges = [
+    # Initialize project session state
+    if 'selected_project' not in st.session_state:
+        st.session_state.selected_project = None
+    if 'project_code' not in st.session_state:
+        st.session_state.project_code = ""
+    if 'project_chat' not in st.session_state:
+        st.session_state.project_chat = []
+    if 'project_progress' not in st.session_state:
+        st.session_state.project_progress = 0
+    if 'code_given' not in st.session_state:
+        st.session_state.code_given = False
+    
+    projects = [
         {
-            "title": "FizzBuzz",
-            "difficulty": "Easy",
-            "description": "Print numbers 1-100. For multiples of 3 print 'Fizz', for 5 print 'Buzz', for both print 'FizzBuzz'.",
-            "hint": "Use modulo operator (%) to check divisibility"
+            "id": "calculator",
+            "title": "🧮 Calculator App",
+            "difficulty": "Beginner",
+            "description": "Build a basic calculator that can add, subtract, multiply, and divide numbers.",
+            "skills": ["Functions", "User Input", "Conditionals", "Math Operations"],
+            "starter_prompt": "Let's build a calculator together! I'll guide you step by step. First, what do you think the calculator needs to do?",
+            "help_level": 5  # 5 = most help, 1 = least help
         },
         {
-            "title": "Palindrome Checker",
-            "difficulty": "Easy",
-            "description": "Write a function that checks if a string is a palindrome (reads same forwards and backwards).",
-            "hint": "Compare string with its reverse"
+            "id": "guess_number",
+            "title": "🎲 Number Guessing Game",
+            "difficulty": "Beginner",
+            "description": "Create a game where the computer picks a random number and the user tries to guess it.",
+            "skills": ["Random Module", "Loops", "Conditionals", "User Input"],
+            "starter_prompt": "We're building a guessing game! The computer will pick a number and the player guesses. What's the first thing we need to do?",
+            "help_level": 5
         },
         {
-            "title": "Sum of List",
-            "difficulty": "Easy",
-            "description": "Create a function that calculates the sum of all numbers in a list without using sum().",
-            "hint": "Use a loop to add each element"
+            "id": "quiz_game",
+            "title": "📝 Quiz Game",
+            "difficulty": "Beginner",
+            "description": "Create a multiple-choice quiz game that tracks the score.",
+            "skills": ["Lists", "Dictionaries", "Loops", "Conditionals"],
+            "starter_prompt": "We're building a quiz game! It will ask questions and track the score. How should we store the questions and answers?",
+            "help_level": 4
+        },
+        {
+            "id": "todo_list",
+            "title": "✅ To-Do List Manager",
+            "difficulty": "Intermediate",
+            "description": "Build a to-do list where users can add, remove, and view tasks.",
+            "skills": ["Lists", "Loops", "Functions", "String Manipulation"],
+            "starter_prompt": "Let's create a to-do list app! Users should be able to add, view, and remove tasks. What data structure would work well for storing tasks?",
+            "help_level": 3
+        },
+        {
+            "id": "password_gen",
+            "title": "🔐 Password Generator",
+            "difficulty": "Intermediate",
+            "description": "Create a tool that generates secure random passwords based on user preferences.",
+            "skills": ["Random Module", "Strings", "Loops", "User Input"],
+            "starter_prompt": "We're building a password generator! It should create random passwords with letters, numbers, and symbols. What's your first thought on how to approach this?",
+            "help_level": 3
+        },
+        {
+            "id": "hangman",
+            "title": "🎮 Hangman Game",
+            "difficulty": "Intermediate",
+            "description": "Build the classic word guessing game with lives and letter tracking.",
+            "skills": ["Lists", "Strings", "Loops", "Conditionals", "Game Logic"],
+            "starter_prompt": "Let's make Hangman! Players guess letters to find a hidden word. What are the main components we need to track?",
+            "help_level": 2
+        },
+        {
+            "id": "contact_book",
+            "title": "📇 Contact Book",
+            "difficulty": "Intermediate",
+            "description": "Build a contact manager to store names, phone numbers, and emails.",
+            "skills": ["Dictionaries", "Lists", "Functions", "File I/O"],
+            "starter_prompt": "Let's create a contact book! Users can add, search, and delete contacts. What's the best way to store contact information?",
+            "help_level": 2
+        },
+        {
+            "id": "text_adventure",
+            "title": "🗺️ Text Adventure Game",
+            "difficulty": "Advanced",
+            "description": "Create an interactive story game where choices affect the outcome.",
+            "skills": ["Functions", "Dictionaries", "Conditionals", "Game Design"],
+            "starter_prompt": "We're building a text adventure! Players make choices that change the story. How should we structure the game flow?",
+            "help_level": 1
         }
     ]
     
-    for challenge in challenges:
-        with st.expander(f"{'🟢' if challenge['difficulty'] == 'Easy' else '🟡'} {challenge['title']} - {challenge['difficulty']}"):
-            st.markdown(f"**Challenge:** {challenge['description']}")
-            st.markdown(f"💡 *Hint: {challenge['hint']}*")
+    if not st.session_state.selected_project:
+        # Project selection grid
+        st.markdown("### Choose Your Project")
+        
+        cols = st.columns(2)
+        for i, project in enumerate(projects):
+            with cols[i % 2]:
+                difficulty_color = {
+                    "Beginner": "🟢",
+                    "Intermediate": "🟡", 
+                    "Advanced": "🔴"
+                }
+                
+                st.markdown(f"""
+                <div class='feature-card' style='min-height: 200px;'>
+                    <h3>{project['title']}</h3>
+                    <p style='font-size: 0.9rem; opacity: 0.8;'>{difficulty_color[project['difficulty']]} {project['difficulty']}</p>
+                    <p>{project['description']}</p>
+                    <p style='font-size: 0.85rem; margin-top: 1rem;'><strong>Skills:</strong> {', '.join(project['skills'])}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button(f"Start Project", key=f"start_{project['id']}", use_container_width=True):
+                    st.session_state.selected_project = project
+                    st.session_state.project_code = f"# {project['title']}\n# Let's build this together!\n\n"
+                    st.session_state.project_chat = [{
+                        "role": "assistant",
+                        "content": project['starter_prompt']
+                    }]
+                    st.session_state.project_progress = 0
+                    st.session_state.code_given = False
+                    st.rerun()
+    
+    else:
+        # Project workspace
+        project = st.session_state.selected_project
+        
+        col1, col2 = st.columns([1, 1])
+        
+        # Back button
+        if st.button("← Back to Projects"):
+            st.session_state.selected_project = None
+            st.session_state.project_code = ""
+            st.session_state.project_chat = []
+            st.session_state.project_progress = 0
+            st.session_state.code_given = False
+            st.rerun()
+        
+        st.markdown(f"## {project['title']}")
+        st.markdown(f"**Goal:** {project['description']}")
+        
+        with col1:
+            st.markdown("#### 💬 AI Guide")
             
-            solution = st.text_area("Your solution:", key=f"challenge_{challenge['title']}", height=150)
+            # Chat container
+            chat_container = st.container(height=450)
+            with chat_container:
+                for message in st.session_state.project_chat:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message["content"])
             
-            if st.button("Submit Solution", key=f"submit_{challenge['title']}"):
-                if api_key and solution:
+            # Chat input
+            if prompt := st.chat_input("Ask for guidance or share your progress..."):
+                st.session_state.project_chat.append({"role": "user", "content": prompt})
+                
+                if api_key:
                     try:
                         client = Groq(api_key=api_key)
-                        with st.spinner("Reviewing..."):
+                        with st.spinner("AI is thinking..."):
+                            # Determine help level based on project difficulty
+                            help_level = project.get('help_level', 3)
+                            
+                            # Progressive help system
+                            if help_level >= 4:  # Beginner projects
+                                guidance_style = (
+                                    "HELP LEVEL: HIGH (Beginner Project)\n"
+                                    "- Give detailed explanations and clear guidance\n"
+                                    "- After 2-3 good responses from student, provide starter code snippets they can type\n"
+                                    "- Show code structure and patterns\n"
+                                    "- Example: 'Here's how you could start: [code snippet]'\n"
+                                    "- Break down into very small steps\n"
+                                )
+                            elif help_level == 3:  # Easy Intermediate
+                                guidance_style = (
+                                    "HELP LEVEL: MEDIUM (Intermediate Project)\n"
+                                    "- Give conceptual guidance with some code hints\n"
+                                    "- After 3-4 thoughtful responses, provide small code examples\n"
+                                    "- Show patterns but make them adapt it\n"
+                                    "- More questions, fewer direct answers\n"
+                                )
+                            elif help_level == 2:  # Hard Intermediate
+                                guidance_style = (
+                                    "HELP LEVEL: LOW (Challenging Project)\n"
+                                    "- Mostly ask questions and give conceptual hints\n"
+                                    "- Only after 5+ quality interactions, show pseudocode or minimal examples\n"
+                                    "- Make them figure out most of the implementation\n"
+                                    "- Focus on guiding their problem-solving process\n"
+                                )
+                            else:  # Advanced
+                                guidance_style = (
+                                    "HELP LEVEL: MINIMAL (Advanced Project)\n"
+                                    "- Ask deep questions about architecture and design\n"
+                                    "- Rarely give code - only high-level patterns if really stuck\n"
+                                    "- Challenge them to think through edge cases\n"
+                                    "- Make them discover solutions through questioning\n"
+                                )
+                            
+                            # Check if student is making progress
+                            progress_indicators = ["i think", "maybe", "should i", "how about", "what if"]
+                            shows_effort = any(indicator in prompt.lower() for indicator in progress_indicators)
+                            
+                            system_prompt = (
+                                f"You are guiding a student to build: {project['title']}\n"
+                                f"Project goal: {project['description']}\n\n"
+                                f"{guidance_style}\n\n"
+                                "INTERACTION REWARDS SYSTEM:\n"
+                                "Track student engagement:\n"
+                                "- If they ask thoughtful questions → praise and guide forward\n"
+                                "- If they share their thinking → acknowledge and build on it\n"
+                                "- If they try something → celebrate attempt even if wrong\n"
+                                "- After consistent good engagement → reward with starter code\n\n"
+                                "CODE GIVING RULES:\n"
+                                "When providing code:\n"
+                                "1. Format it clearly so they can TYPE it (not copy-paste mentally)\n"
+                                "2. Add comments explaining each part\n"
+                                "3. Keep it small - 3-10 lines max\n"
+                                "4. Say 'Try typing this out:' before code\n"
+                                "5. Ask them to explain it back after typing\n\n"
+                                "Example starter code format:\n"
+                                "```python\n"
+                                "# This creates our main function\n"
+                                "def calculator():\n"
+                                "    # We'll add the logic here\n"
+                                "    pass\n"
+                                "```\n\n"
+                                "CRITICAL: Adjust help amount based on project difficulty.\n"
+                                "Beginner = more code snippets, Advanced = mostly questions.\n\n"
+                                f"""Student's engagement level: {"HIGH - they're thinking!" if shows_effort else "Check their understanding"}\n\n"""
+
+                                f"Current student code:\n{st.session_state.project_code}\n\n"
+                                "Be encouraging, adaptive, and help them build confidence through incremental success."
+                            )
+                            
                             response = client.chat.completions.create(
                                 model="llama-3.1-8b-instant",
                                 messages=[
-                                    {"role": "system", "content": "Review coding challenge solutions. Give score out of 10 and feedback."},
-                                    {"role": "user", "content": f"Challenge: {challenge['description']}\n\nSolution:\n{solution}"}
+                                    {"role": "system", "content": system_prompt},
+                                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.project_chat[-10:]]
                                 ],
-                                temperature=0.3,
+                                temperature=0.5,
                             )
-                            st.success("AI Review:")
-                            st.write(response.choices[0].message.content)
-                            st.session_state.user_progress['total_points'] += 20
+                            ai_message = response.choices[0].message.content
+                            st.session_state.project_chat.append({"role": "assistant", "content": ai_message})
+                            
+                            # Track progress
+                            if shows_effort:
+                                st.session_state.project_progress += 1
+                            
+                            # Give code after sufficient engagement
+                            if "```python" in ai_message:
+                                st.session_state.code_given = True
+                            
+                            st.session_state.user_progress['total_points'] += 5
+                            st.rerun()
                     except Exception as e:
                         st.error(f"Error: {e}")
                 else:
-                    st.warning("Please enter API key and solution.")
+                    st.session_state.project_chat.append({
+                        "role": "assistant",
+                        "content": "⚠️ Please add your Groq API key in the sidebar!"
+                    })
+                    st.rerun()
+        
+        with col2:
+            st.markdown("#### 💻 Your Code")
+            
+            # IDE-style code editor with JavaScript for tab support
+            st.markdown("""
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const textareas = document.querySelectorAll('textarea');
+                textareas.forEach(textarea => {
+                    textarea.addEventListener('keydown', function(e) {
+                        // Tab key support
+                        if (e.key === 'Tab') {
+                            e.preventDefault();
+                            const start = this.selectionStart;
+                            const end = this.selectionEnd;
+                            const value = this.value;
+                            
+                            // Insert 4 spaces
+                            this.value = value.substring(0, start) + '    ' + value.substring(end);
+                            this.selectionStart = this.selectionEnd = start + 4;
+                        }
+                        
+                        // Auto-indent on Enter
+                        if (e.key === 'Enter') {
+                            const start = this.selectionStart;
+                            const value = this.value;
+                            const lines = value.substring(0, start).split('\\n');
+                            const currentLine = lines[lines.length - 1];
+                            
+                            // Count leading spaces
+                            const leadingSpaces = currentLine.match(/^\\s*/)[0];
+                            
+                            // Check if line ends with : (function, if, for, while, etc.)
+                            const needsExtraIndent = currentLine.trim().endsWith(':');
+                            
+                            setTimeout(() => {
+                                const newStart = this.selectionStart;
+                                const indent = needsExtraIndent ? leadingSpaces + '    ' : leadingSpaces;
+                                this.value = this.value.substring(0, newStart) + indent + this.value.substring(newStart);
+                                this.selectionStart = this.selectionEnd = newStart + indent.length;
+                            }, 0);
+                        }
+                    });
+                });
+            });
+            </script>
+            """, unsafe_allow_html=True)
+            
+            # Code editor with line numbers feel
+            st.markdown("<div class='code-editor-container'>", unsafe_allow_html=True)
+            st.session_state.project_code = st.text_area(
+                "Type your code here (Tab for indent, Enter auto-indents):",
+                value=st.session_state.project_code,
+                height=450,
+                key="project_workspace",
+                help="💡 Use Tab key for indentation. After typing ':', press Enter to auto-indent!"
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            # Progress indicator
+            if st.session_state.project_progress > 0:
+                st.info(
+    f"""🎯 Engagement Level: {min(st.session_state.project_progress, 5)}/5 - 
+    {'Keep going!' if st.session_state.project_progress < 5 else "You're doing great!"}"""
+)
+
+            
+            col_a, col_b, col_c = st.columns(3)
+            
+            with col_a:
+                if st.button("💡 Give Hint", use_container_width=True):
+                    st.session_state.project_chat.append({
+                        "role": "user",
+                        "content": "I'm stuck. Can you give me a hint about what to do next?"
+                    })
+                    st.rerun()
+            
+            with col_b:
+                if st.button("✅ Check Progress", use_container_width=True):
+                    st.session_state.project_chat.append({
+                        "role": "user",
+                        "content": f"Here's my current code. Am I on the right track?\n```python\n{st.session_state.project_code}\n```"
+                    })
+                    st.rerun()
+            
+            with col_c:
+                if st.button("🎯 What's Next?", use_container_width=True):
+                    st.session_state.project_chat.append({
+                        "role": "user",
+                        "content": "What should I work on next?"
+                    })
+                    st.rerun()
+        
+        # Progress indicator
+        st.markdown("---")
+        col_info1, col_info2 = st.columns(2)
+        with col_info1:
+            st.markdown("**💪 Skills You're Building:** " + ", ".join(project['skills']))
+        with col_info2:
+            difficulty_info = {
+                "Beginner": "🟢 More guidance & starter code",
+                "Intermediate": "🟡 Moderate hints",
+                "Advanced": "🔴 Minimal help - you got this!"
+            }
+            st.markdown("**📊 Difficulty:** " + difficulty_info.get(project['difficulty'], ""))
+        
+        if st.button("✅ Mark Project Complete", type="primary"):
+            st.session_state.user_progress['total_points'] += 100
+            st.session_state.user_progress['completed_lessons'].append(f"project_{project['id']}")
+            st.success(f"🎉 Awesome! You completed {project['title']}! +100 points")
+            st.balloons()
+            st.session_state.selected_project = None
+            st.session_state.project_code = ""
+            st.session_state.project_chat = []
+            st.session_state.project_progress = 0
+            st.session_state.code_given = False
+            st.rerun()
 
 # --- PROGRESS PAGE ---
 elif page == "📊 Progress":
